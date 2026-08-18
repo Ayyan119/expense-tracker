@@ -44,6 +44,12 @@ def landing():
     return render_template("landing.html")
 
 
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if "user_id" in session:

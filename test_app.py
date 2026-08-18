@@ -41,6 +41,18 @@ def test_landing_page(client):
     assert b"Terms and Conditions" in response.data
     assert b"Privacy Policy" in response.data
 
+def test_terms_page(client):
+    """Test that the terms page renders correctly with required sections."""
+    response = client.get('/terms')
+    assert response.status_code == 200
+    assert b"Terms and Conditions" in response.data
+    assert b"Acceptance of Terms" in response.data
+    assert b"Use of Service" in response.data
+    assert b"User Data" in response.data
+    assert b"Limitations of Liability" in response.data
+    assert b"Changes to Terms" in response.data
+
+
 def test_registration(client):
     """Test user registration process."""
     response = client.post('/register', data={
