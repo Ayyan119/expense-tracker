@@ -51,6 +51,16 @@ def test_terms_page(client):
     assert b"User Data" in response.data
     assert b"Limitations of Liability" in response.data
     assert b"Changes to Terms" in response.data
+def test_privacy_page(client):
+    """Test that the privacy policy page renders correctly with required sections."""
+    response = client.get('/privacy')
+    assert response.status_code == 200
+    assert b"Privacy Policy" in response.data
+    assert b"Data We Collect" in response.data
+    assert b"How We Use Your Data" in response.data
+    assert b"Data Storage" in response.data
+    assert b"Third Party Services" in response.data
+    assert b"Contact Us" in response.data
 
 
 def test_registration(client):
