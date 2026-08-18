@@ -37,7 +37,7 @@ def test_landing_page(client):
     response = client.get('/')
     assert response.status_code == 200
     assert b"Spendly" in response.data
-    assert b"Know where your" in response.data
+    assert b"Know where it goes" in response.data
     assert b"Terms and Conditions" in response.data
     assert b"Privacy Policy" in response.data
 
