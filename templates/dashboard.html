@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Spendly{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Main Content: Expense List and Filters -->
+    <div class="dashboard-main">
+        <div class="dashboard-header">
+            <div>
+                <h1 class="dashboard-title">Welcome, {{ session.get('user_name') }}</h1>
+                <p class="dashboard-subtitle">Track and analyze your daily expenses</p>
+            </div>
+            <a href="{{ url_for('add_expense') }}" class="btn-primary">+ Add Expense</a>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <span class="metric-label">Total Spent</span>
+                <span class="metric-value">₹{{ "{:,.2f}".format(total_spent) }}</span>
+            </div>
+            <div class="metric-card">
+                <span class="metric-label">Expenses Logged</span>
+                <span class="metric-value">{{ expenses|length }}</span>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <form method="GET" action="{{ url_for('dashboard') }}" class="filter-form">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="query" style="font-size: 0.75rem; font-weight: 600;">Search</label>
+                    <input type="text" id="query" name="query" value="{{ filters.query }}" placeholder="e.g. rent" class="form-input" style="padding: 0.45rem 0.75rem;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="category" style="font-size: 0.75rem; font-weight: 600;">Category</label>
+                    <select id="category" name="category" class="form-input" style="padding: 0.45rem 0.75rem; background-color: var(--paper); height: 38px;">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="start_date" style="font-size: 0.75rem; font-weight: 600;">From</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ filters.start_date }}" class="form-input" style="padding: 0.45rem 0.75rem; height: 38px;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="end_date" style="font-size: 0.75rem; font-weight: 600;">To</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ filters.end_date }}" class="form-input" style="padding: 0.45rem 0.75rem; height: 38px;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="order_by" style="font-size: 0.75rem; font-weight: 600;">Sort By</label>
+                    <select id="order_by" name="order_by" class="form-input" style="padding: 0.45rem 0.75rem; background-color: var(--paper); height: 38px;">
+                        <option value="newest" {% if filters.order_by == 'newest' %}selected{% endif %}>Date (Newest)</option>
+                        <option value="oldest" {% if filters.order_by == 'oldest' %}selected{% endif %}>Date (Oldest)</option>
+                        <option value="amount_desc" {% if filters.order_by == 'amount_desc' %}selected{% endif %}>Amount (High-Low)</option>
+                        <option value="amount_asc" {% if filters.order_by == 'amount_asc' %}selected{% endif %}>Amount (Low-High)</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn-primary" style="padding: 0.5rem 1rem; height: 38px;">Filter</button>
+            </form>
+        </div>
+
+        <!-- Recent Transactions Card -->
+        <div class="dashboard-card">
+            <h2 class="dashboard-card-title">Recent Transactions</h2>
+            
+            {% if expenses %}
+            <div class="table-responsive">
+                <table class="expense-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expenses %}
+                        <tr>
+                            <td style="white-space: nowrap;">{{ expense.date }}</td>
+                            <td>{{ expense.description or '—' }}</td>
+                            <td>
+                                <span class="badge badge-{{ expense.category|lower }}">{{ expense.category }}</span>
+                            </td>
+                            <td style="font-weight: 500; white-space: nowrap;">₹{{ "{:,.2f}".format(expense.amount) }}</td>
+                            <td style="text-align: right; white-space: nowrap;">
+                                <a href="{{ url_for('edit_expense', id=expense.id) }}" class="btn-action">Edit</a>
+                                <a href="{{ url_for('delete_expense', id=expense.id) }}" class="btn-action btn-delete" onclick="return confirm('Are you sure you want to delete this expense?')">Delete</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 3rem 1rem; color: var(--ink-muted);">
+                <p>No transactions match your current filters.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sidebar: Category Breakdown -->
+    <div class="dashboard-sidebar">
+        <div class="dashboard-card">
+            <h2 class="dashboard-card-title">Category Breakdown</h2>
+            
+            {% if category_breakdown %}
+            <div class="mock-bars" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                {% for breakdown in category_breakdown %}
+                <div class="category-item">
+                    <div class="category-info">
+                        <span class="category-name">{{ breakdown.category }}</span>
+                        <span class="category-amt">₹{{ "{:,.2f}".format(breakdown.amount) }}</span>
+                    </div>
+                    <div class="mock-bar-track">
+                        {% set bar_class = "" %}
+                        {% if breakdown.category|lower == 'bills' %}
+                            {% set bar_class = "" %}
+                        {% elif breakdown.category|lower == 'food' %}
+                            {% set bar_class = "mock-bar-2" %}
+                        {% elif breakdown.category|lower == 'health' %}
+                            {% set bar_class = "mock-bar-3" %}
+                        {% elif breakdown.category|lower == 'transport' %}
+                            {% set bar_class = "mock-bar-4" %}
+                        {% endif %}
+                        <div class="mock-bar {{ bar_class }}" style="width: {{ breakdown.percentage }}%;"></div>
+                    </div>
+                    <div style="font-size: 0.7rem; color: var(--ink-muted); text-align: right; margin-top: 0.15rem;">
+                        {{ "{:.1f}%".format(breakdown.percentage) }} of total
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="font-size: 0.9rem; color: var(--ink-muted); text-align: center; padding: 1.5rem 0;">No spending logged yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
