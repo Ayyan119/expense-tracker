@@ -3,6 +3,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from database.db import get_db, init_db, seed_db
 import functools
 import os
+import random
+import sqlite3
+import click
 
 app = Flask(__name__)
 app.secret_key = "spendly_secure_developer_secret_key"
