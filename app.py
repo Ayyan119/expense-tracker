@@ -81,7 +81,7 @@ def register():
         try:
             cursor = db.cursor()
             cursor.execute(
-                "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+                "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
                 (name, email, hashed_password)
             )
             db.commit()
@@ -114,7 +114,7 @@ def login():
         db = get_db()
         user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
-        if user and check_password_hash(user["password"], password):
+        if user and check_password_hash(user["password_hash"], password):
             session["user_id"] = user["id"]
             session["user_name"] = user["name"]
             session["user_email"] = user["email"]
@@ -155,8 +155,8 @@ def dashboard():
     user_id = session["user_id"]
     db = get_db()
 
-    # Available categories
-    categories = ['Bills', 'Food', 'Health', 'Transport', 'Other']
+    # Available categories (fixed list per spec)
+    categories = ['Food', 'Transport', 'Bills', 'Health', 'Entertainment', 'Shopping', 'Other']
 
     # Retrieve filter arguments
     query = request.args.get("query", "").strip()
@@ -327,4 +327,16 @@ def delete_expense(id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    import socket
+
+    port = int(os.environ.get("PORT", 5001))
+    
+    # Automatically find an available port starting from 5001
+    for p in range(port, port + 10):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', p)) != 0:
+                port = p
+                break
+
+    app.run(debug=True, port=port)
+

@@ -79,12 +79,12 @@ def test_login_logout(client):
     """Test logging in and logging out."""
     # Login with the seeded test user
     response = client.post('/login', data={
-        'email': 'nitish@example.com',
-        'password': 'password123'
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    assert b"Welcome, Nitish Kumar" in response.data
+    assert b"Welcome, Demo User" in response.data
     
     # Logout
     response = client.get('/logout', follow_redirects=True)
@@ -94,8 +94,8 @@ def test_login_logout(client):
 def test_add_expense(client):
     """Test adding a new expense."""
     client.post('/login', data={
-        'email': 'nitish@example.com',
-        'password': 'password123'
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
     })
     
     response = client.post('/expenses/add', data={
@@ -112,8 +112,8 @@ def test_add_expense(client):
 def test_edit_expense(client):
     """Test editing an existing expense."""
     client.post('/login', data={
-        'email': 'nitish@example.com',
-        'password': 'password123'
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
     })
     
     response = client.post('/expenses/1/edit', data={
@@ -130,11 +130,34 @@ def test_edit_expense(client):
 def test_delete_expense(client):
     """Test deleting an expense."""
     client.post('/login', data={
-        'email': 'nitish@example.com',
-        'password': 'password123'
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
     })
     
     # Delete expense id 1 (seeded 'Bills' expense)
     response = client.get('/expenses/1/delete', follow_redirects=True)
     assert response.status_code == 200
     assert b"Rent & electricity" not in response.data
+
+def test_seed_db_idempotency(client):
+    """Test calling seed_db multiple times does not duplicate data."""
+    with app.app_context():
+        seed_db()
+        seed_db()
+        db = database.db.get_db()
+        user_count = db.execute("SELECT COUNT(*) as count FROM users").fetchone()["count"]
+        expense_count = db.execute("SELECT COUNT(*) as count FROM expenses").fetchone()["count"]
+        assert user_count == 1
+        assert expense_count == 8
+
+def test_foreign_key_enforcement(client):
+    """Test foreign key constraint enforcement on expenses table."""
+    import sqlite3
+    with app.app_context():
+        db = database.db.get_db()
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(
+                "INSERT INTO expenses (user_id, category, amount, date) VALUES (?, ?, ?, ?)",
+                (9999, "Food", 100.0, "2026-03-01")
+            )
+
