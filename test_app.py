@@ -63,17 +63,122 @@ def test_privacy_page(client):
     assert b"Contact Us" in response.data
 
 
+def test_register_page_render(client):
+    """Test that the GET /register page renders correctly."""
+    response = client.get('/register')
+    assert response.status_code == 200
+    assert b"Create your account" in response.data
+    assert b"Start tracking your expenses today" in response.data
+
+
 def test_registration(client):
-    """Test user registration process."""
+    """Test successful user registration process."""
     response = client.post('/register', data={
         'name': 'Test User',
         'email': 'testuser@example.com',
-        'password': 'password123'
+        'password': 'password123',
+        'confirm_password': 'password123'
     }, follow_redirects=True)
     
     assert response.status_code == 200
     assert b"Welcome, Test User" in response.data
     assert b"Recent Transactions" in response.data
+
+
+def test_registration_missing_fields(client):
+    """Test registration failure with missing fields."""
+    response = client.post('/register', data={
+        'name': '',
+        'email': 'testuser@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    }, follow_redirects=True)
+    
+    assert response.status_code == 200
+    assert b"All fields are required." in response.data
+
+
+def test_registration_uncapitalized_name(client):
+    """Test registration failure when name does not start with a capital letter."""
+    response = client.post('/register', data={
+        'name': 'tariq Khan',
+        'email': 'tariq@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    }, follow_redirects=True)
+    
+    assert response.status_code == 200
+    assert b"Name must start with a capital letter." in response.data
+
+
+def test_registration_invalid_email_pattern(client):
+    """Test registration failure with invalid email pattern (e.g. 123@123)."""
+    response = client.post('/register', data={
+        'name': 'Valid Name',
+        'email': '123@123',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    }, follow_redirects=True)
+    
+    assert response.status_code == 200
+    assert b"Please enter a valid email address." in response.data
+
+
+def test_registration_short_password(client):
+    """Test registration failure with password less than 8 characters."""
+    response = client.post('/register', data={
+        'name': 'Short Pass',
+        'email': 'shortpass@example.com',
+        'password': 'short',
+        'confirm_password': 'short'
+    }, follow_redirects=True)
+    
+    assert response.status_code == 200
+    assert b"Password must be at least 8 characters long." in response.data
+
+
+def test_registration_password_mismatch(client):
+    """Test registration failure when password and confirm_password do not match."""
+    response = client.post('/register', data={
+        'name': 'Mismatch User',
+        'email': 'mismatch@example.com',
+        'password': 'password123',
+        'confirm_password': 'differentpassword'
+    }, follow_redirects=True)
+    
+    assert response.status_code == 200
+    assert b"Passwords do not match." in response.data
+    # Verify name and email are preserved in the response form
+    assert b'value="Mismatch User"' in response.data
+    assert b'value="mismatch@example.com"' in response.data
+
+
+def test_registration_duplicate_email(client):
+    """Test registration failure with an existing email address."""
+    response = client.post('/register', data={
+        'name': 'Duplicate User',
+        'email': 'demo@spendly.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    }, follow_redirects=True)
+    
+    assert response.status_code == 200
+    assert b"An account with this email already exists." in response.data
+
+
+def test_registration_redirect_if_logged_in(client):
+    """Test that an authenticated user accessing /register is redirected to dashboard."""
+    # Login first
+    client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
+    })
+    
+    # Access GET /register
+    response = client.get('/register', follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Welcome, Demo User" in response.data
+
 
 def test_login_logout(client):
     """Test logging in and logging out."""

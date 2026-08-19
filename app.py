@@ -3,6 +3,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from database.db import get_db, init_db, seed_db
 import functools
 import os
+import random
+import re
+import sqlite3
+import click
 
 app = Flask(__name__)
 app.secret_key = "spendly_secure_developer_secret_key"
@@ -64,18 +68,29 @@ def register():
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
 
-        if not name or not email or not password:
-            return render_template("register.html", error="All fields are required.")
+        if not name or not email or not password or not confirm_password:
+            return render_template("register.html", error="All fields are required.", name=name, email=email)
         
+        if not name[0].isupper():
+            return render_template("register.html", error="Name must start with a capital letter.", name=name, email=email)
+
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email):
+            return render_template("register.html", error="Please enter a valid email address.", name=name, email=email)
+
         if len(password) < 8:
-            return render_template("register.html", error="Password must be at least 8 characters long.")
+            return render_template("register.html", error="Password must be at least 8 characters long.", name=name, email=email)
+
+        if password != confirm_password:
+            return render_template("register.html", error="Passwords do not match.", name=name, email=email)
 
         db = get_db()
         # Check if the email is already registered
         existing_user = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
         if existing_user:
-            return render_template("register.html", error="An account with this email already exists.")
+            return render_template("register.html", error="An account with this email already exists.", name=name, email=email)
 
         hashed_password = generate_password_hash(password)
         try:
@@ -94,7 +109,7 @@ def register():
 
             return redirect(url_for("dashboard"))
         except Exception:
-            return render_template("register.html", error="An error occurred. Please try again.")
+            return render_template("register.html", error="An error occurred. Please try again.", name=name, email=email)
 
     return render_template("register.html")
 
