@@ -3,36 +3,96 @@
 {% block title %}My Profile — Spendly{% endblock %}
 
 {% block content %}
-<section class="auth-section">
-    <div class="auth-container" style="max-width: 600px;">
-        <div class="auth-header">
-            <h1 class="auth-title">My Profile</h1>
-            <p class="auth-subtitle">Manage your account information and view stats</p>
+<section class="profile-section">
+    <div class="profile-container">
+        <!-- Page Header -->
+        <div class="profile-header">
+            <h1 class="profile-header-title">My Profile</h1>
+            <p class="profile-header-sub">Manage your account details and view your financial activity summary</p>
         </div>
 
-        <div class="auth-card" style="margin-bottom: 2rem;">
-            <h2 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 1.25rem; color: var(--accent);">Personal Information</h2>
-            
-            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 1rem; font-size: 0.95rem;">
-                <span style="font-weight: 600; color: var(--ink-soft);">Full name:</span>
-                <span>{{ user['name'] }}</span>
-                
-                <span style="font-weight: 600; color: var(--ink-soft);">Email address:</span>
-                <span>{{ user['email'] }}</span>
+        <!-- User Information Card -->
+        <div class="profile-user-card">
+            <div class="profile-avatar">{{ user.initials }}</div>
+            <div class="profile-user-details">
+                <h2 class="profile-user-name">{{ user.name }}</h2>
+                <div class="profile-user-meta">
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">Email:</span>
+                        <span class="profile-meta-value">{{ user.email }}</span>
+                    </div>
+                    <div class="profile-meta-item">
+                        <span class="profile-meta-label">Member Since:</span>
+                        <span class="profile-meta-value">{{ user.member_since }}</span>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="auth-card">
-            <h2 style="font-family: var(--font-display); font-size: 1.4rem; margin-bottom: 1.25rem; color: var(--accent);">Account Stats</h2>
-            
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; text-align: center;">
-                <div style="background: var(--paper); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-soft);">
-                    <div style="font-size: 2rem; font-family: var(--font-display); color: var(--ink);">{{ stats['count'] }}</div>
-                    <div style="font-size: 0.75rem; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; margin-top: 0.25rem; letter-spacing: 0.05em;">Expenses Logged</div>
+        <!-- Summary Stats Row -->
+        <div class="profile-stats-grid">
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Total Spent</div>
+                <div class="profile-stat-value stat-accent">₹{{ "{:,.2f}".format(stats.total_spent) }}</div>
+            </div>
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Transactions</div>
+                <div class="profile-stat-value">{{ stats.transaction_count }}</div>
+            </div>
+            <div class="profile-stat-card">
+                <div class="profile-stat-label">Top Category</div>
+                <div class="profile-stat-value">{{ stats.top_category }}</div>
+            </div>
+        </div>
+
+        <!-- Two Column Layout: Transaction History & Category Breakdown -->
+        <div class="profile-content-grid">
+            <!-- Recent Transactions Table -->
+            <div class="profile-card">
+                <div class="profile-card-header">
+                    <h3 class="profile-card-title">Recent Transactions</h3>
                 </div>
-                <div style="background: var(--paper); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-soft);">
-                    <div style="font-size: 2rem; font-family: var(--font-display); color: var(--accent);">₹{{ "{:,.2f}".format(stats['total'] or 0.0) }}</div>
-                    <div style="font-size: 0.75rem; font-weight: 500; color: var(--ink-muted); text-transform: uppercase; margin-top: 0.25rem; letter-spacing: 0.05em;">Total Spent</div>
+                <div class="table-responsive">
+                    <table class="expense-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Category</th>
+                                <th class="text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in recent_transactions %}
+                            <tr>
+                                <td class="table-date">{{ tx.date }}</td>
+                                <td class="table-desc">{{ tx.description }}</td>
+                                <td><span class="badge {{ tx.badge_class }}">{{ tx.category }}</span></td>
+                                <td class="table-amount text-right">₹{{ "{:,.2f}".format(tx.amount) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Category Breakdown -->
+            <div class="profile-card">
+                <div class="profile-card-header">
+                    <h3 class="profile-card-title">Category Breakdown</h3>
+                </div>
+                <div class="profile-breakdown-list">
+                    {% for cat in category_breakdown %}
+                    <div class="category-item">
+                        <div class="category-info">
+                            <span class="category-name">{{ cat.category }}</span>
+                            <span class="category-amt">₹{{ "{:,.2f}".format(cat.amount) }} ({{ cat.percentage }}%)</span>
+                        </div>
+                        <div class="category-bar-bg">
+                            <div class="category-bar-fill {{ cat.badge_class }}-fill" style="width: {{ cat.percentage }}%;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>

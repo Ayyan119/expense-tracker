@@ -197,7 +197,8 @@ def test_login_logout(client):
     }, follow_redirects=True)
     
     assert response.status_code == 200
-    assert b"Welcome, Demo User" in response.data
+    assert b"My Profile" in response.data
+    assert b"Demo User" in response.data
     
     # Logout
     response = client.get('/logout', follow_redirects=True)
@@ -244,14 +245,14 @@ def test_login_nonexistent_email(client):
 
 
 def test_login_success(client):
-    """Test successful login with valid credentials."""
+    """Test successful login with valid credentials redirects to profile page."""
     response = client.post('/login', data={
         'email': 'demo@spendly.com',
         'password': 'demo123'
     }, follow_redirects=True)
     assert response.status_code == 200
-    assert b"Welcome, Demo User" in response.data
-    assert b"Recent Transactions" in response.data
+    assert b"My Profile" in response.data
+    assert b"Demo User" in response.data
 
 
 def test_logout_clears_session(client):
@@ -272,14 +273,14 @@ def test_logout_clears_session(client):
 
 
 def test_login_redirect_if_logged_in(client):
-    """Test that an authenticated user accessing GET /login is redirected to dashboard."""
+    """Test that an authenticated user accessing GET /login is redirected to profile."""
     client.post('/login', data={
         'email': 'demo@spendly.com',
         'password': 'demo123'
     })
     response = client.get('/login', follow_redirects=True)
     assert response.status_code == 200
-    assert b"Welcome, Demo User" in response.data
+    assert b"My Profile" in response.data
 
 def test_add_expense(client):
     """Test adding a new expense."""
@@ -350,4 +351,42 @@ def test_foreign_key_enforcement(client):
                 "INSERT INTO expenses (user_id, category, amount, date) VALUES (?, ?, ?, ?)",
                 (9999, "Food", 100.0, "2026-03-01")
             )
+
+
+def test_profile_requires_login(client):
+    """Test accessing GET /profile when unauthenticated redirects to /login."""
+    response = client.get('/profile', follow_redirects=False)
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_profile_page_authenticated(client):
+    """Test authenticated GET /profile renders user card, summary stats, recent transactions, and category breakdown."""
+    client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
+    })
+    response = client.get('/profile')
+    assert response.status_code == 200
+    # User info card assertions
+    assert b"Demo User" in response.data
+    assert b"demo@spendly.com" in response.data
+    assert b"Member Since" in response.data
+    assert b"DU" in response.data
+
+    # Summary stats row assertions
+    assert b"Total Spent" in response.data
+    assert b"Transactions" in response.data
+    assert b"Top Category" in response.data
+
+    # Recent transactions table assertions
+    assert b"Recent Transactions" in response.data
+    assert b"Dinner with friends" in response.data
+    assert b"Rent &amp; electricity" in response.data
+
+    # Category breakdown assertions
+    assert b"Category Breakdown" in response.data
+    assert b"Bills" in response.data
+    assert b"Food" in response.data
+
 
