@@ -124,7 +124,7 @@ def login():
         password = request.form.get("password", "")
 
         if not email or not password:
-            return render_template("login.html", error="Please provide email and password.")
+            return render_template("login.html", error="Please provide email and password.", email=email)
 
         db = get_db()
         user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
@@ -135,7 +135,7 @@ def login():
             session["user_email"] = user["email"]
             return redirect(url_for("dashboard"))
 
-        return render_template("login.html", error="Invalid email or password.")
+        return render_template("login.html", error="Invalid email or password.", email=email)
 
     return render_template("login.html")
 

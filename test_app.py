@@ -180,8 +180,16 @@ def test_registration_redirect_if_logged_in(client):
     assert b"Welcome, Demo User" in response.data
 
 
+def test_login_page_render(client):
+    """Test that GET /login page renders correctly."""
+    response = client.get('/login')
+    assert response.status_code == 200
+    assert b"Welcome back" in response.data
+    assert b"Sign in to your Spendly account" in response.data
+
+
 def test_login_logout(client):
-    """Test logging in and logging out."""
+    """Test logging in with valid credentials and logging out."""
     # Login with the seeded test user
     response = client.post('/login', data={
         'email': 'demo@spendly.com',
@@ -195,6 +203,83 @@ def test_login_logout(client):
     response = client.get('/logout', follow_redirects=True)
     assert response.status_code == 200
     assert b"Sign in" in response.data
+
+
+def test_login_missing_fields(client):
+    """Test login failure when submitting missing email or password."""
+    response = client.post('/login', data={
+        'email': '',
+        'password': 'demo123'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Please provide email and password." in response.data
+
+    response = client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': ''
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Please provide email and password." in response.data
+
+
+def test_login_invalid_password(client):
+    """Test login failure when providing wrong password for existing user."""
+    response = client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'wrongpassword'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Invalid email or password." in response.data
+    assert b'value="demo@spendly.com"' in response.data
+
+
+def test_login_nonexistent_email(client):
+    """Test login failure when providing non-existent email."""
+    response = client.post('/login', data={
+        'email': 'nonexistent@spendly.com',
+        'password': 'demo123'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Invalid email or password." in response.data
+
+
+def test_login_success(client):
+    """Test successful login with valid credentials."""
+    response = client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Welcome, Demo User" in response.data
+    assert b"Recent Transactions" in response.data
+
+
+def test_logout_clears_session(client):
+    """Test that logging out clears user session and redirects to landing page."""
+    # Login first
+    client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
+    })
+    # Logout
+    response = client.get('/logout', follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Know where it goes" in response.data
+    # Verify session is cleared by attempting to access protected route profile
+    protected_response = client.get('/profile', follow_redirects=False)
+    assert protected_response.status_code == 302
+    assert '/login' in protected_response.headers['Location']
+
+
+def test_login_redirect_if_logged_in(client):
+    """Test that an authenticated user accessing GET /login is redirected to dashboard."""
+    client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
+    })
+    response = client.get('/login', follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Welcome, Demo User" in response.data
 
 def test_add_expense(client):
     """Test adding a new expense."""
