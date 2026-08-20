@@ -29,6 +29,25 @@
             </div>
         </div>
 
+        <!-- Date Filter Toolbar Bar -->
+        <div class="profile-filter-bar">
+            <div class="preset-pills-group">
+                <a href="{{ url_for('profile', preset='all') }}" class="preset-pill {% if filters and filters.preset == 'all' %}active{% endif %}">All Time</a>
+                <a href="{{ url_for('profile', preset='this_month') }}" class="preset-pill {% if filters and filters.preset == 'this_month' %}active{% endif %}">This Month</a>
+                <a href="{{ url_for('profile', preset='last_3_months') }}" class="preset-pill {% if filters and filters.preset == 'last_3_months' %}active{% endif %}">Last 3 Months</a>
+                <a href="{{ url_for('profile', preset='last_6_months') }}" class="preset-pill {% if filters and filters.preset == 'last_6_months' %}active{% endif %}">Last 6 Months</a>
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <form method="GET" action="{{ url_for('profile') }}" class="custom-date-form">
+                <input type="date" id="start_date" name="start_date" class="filter-date-input" value="{{ filters.start_date if filters else '' }}" aria-label="Filter Start Date">
+                <span class="date-sep">to</span>
+                <input type="date" id="end_date" name="end_date" class="filter-date-input" value="{{ filters.end_date if filters else '' }}" aria-label="Filter End Date">
+                <button type="submit" class="btn-apply-filter">Apply</button>
+            </form>
+        </div>
+
         <!-- Summary Stats Row -->
         <div class="profile-stats-grid">
             <div class="profile-stat-card">
@@ -74,7 +93,7 @@
                             {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-muted text-center" style="text-align: center; color: var(--ink-muted); padding: 1.5rem 0;">No transactions recorded yet.</td>
+                                <td colspan="4" class="profile-empty-state">No transactions recorded yet.</td>
                             </tr>
                             {% endif %}
                         </tbody>
@@ -101,7 +120,7 @@
                     </div>
                     {% endfor %}
                     {% else %}
-                    <p class="text-muted" style="color: var(--ink-muted); text-align: center; padding: 1.5rem 0;">No spending categories to display.</p>
+                    <p class="profile-empty-state">No spending categories to display.</p>
                     {% endif %}
                 </div>
             </div>
