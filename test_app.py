@@ -390,3 +390,114 @@ def test_profile_page_authenticated(client):
     assert b"Food" in response.data
 
 
+def test_profile_dynamic_user_details(client):
+    """Test dynamic user details (name, email, initials, member_since) from database."""
+    client.post('/register', data={
+        'name': 'Sarah Connor',
+        'email': 'sarah@skynet.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    response = client.get('/profile')
+    assert response.status_code == 200
+    assert b"Sarah Connor" in response.data
+    assert b"sarah@skynet.com" in response.data
+    assert b"SC" in response.data
+
+
+def test_profile_user_info_and_initials(client):
+    """Test multi-part name initials ('Ali Tariq Khan' -> 'AK')."""
+    client.post('/register', data={
+        'name': 'Ali Tariq Khan',
+        'email': 'ali@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    response = client.get('/profile')
+    assert response.status_code == 200
+    assert b"Ali Tariq Khan" in response.data
+    assert b"ali@example.com" in response.data
+    assert b"AK" in response.data
+
+
+def test_profile_single_name_initials(client):
+    """Test single name initials ('Ahmed' -> 'A')."""
+    client.post('/register', data={
+        'name': 'Ahmed',
+        'email': 'ahmed@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    response = client.get('/profile')
+    assert response.status_code == 200
+    assert b"Ahmed" in response.data
+    assert b"A" in response.data
+
+
+def test_profile_recent_transactions_live_db(client):
+    """Test recent transactions table on /profile queries database sorted by date DESC, id DESC with max 10 items."""
+    client.post('/register', data={
+        'name': 'Recent Tx User',
+        'email': 'recenttx@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+
+    for i in range(1, 13):
+        date_str = f"2026-03-{i:02d}"
+        client.post('/expenses/add', data={
+            'category': 'Food' if i % 2 == 0 else 'Bills',
+            'amount': str(100.0 * i),
+            'date': date_str,
+            'description': f"Expense item {i:02d}"
+        })
+
+    response = client.get('/profile')
+    assert response.status_code == 200
+
+    assert b"Expense item 12" in response.data
+    assert b"Expense item 03" in response.data
+    assert b"Expense item 01" not in response.data
+    assert b"Expense item 02" not in response.data
+    assert b"badge-food" in response.data
+    assert b"badge-bills" in response.data
+
+
+def test_profile_empty_expenses_state(client):
+    """Test /profile renders clean empty state when user has no recorded transactions."""
+    client.post('/register', data={
+        'name': 'Empty Tx User',
+        'email': 'emptytx@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+
+    response = client.get('/profile')
+    assert response.status_code == 200
+    assert b"0.00" in response.data
+    assert b"N/A" in response.data
+    assert b"No transactions recorded yet." in response.data
+    assert b"No spending categories to display." in response.data
+
+
+def test_profile_category_breakdown_dynamic(client):
+    """Test category breakdown percentage and amount calculations from database."""
+    client.post('/register', data={
+        'name': 'Breakdown User',
+        'email': 'breakdown@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    # Add 750 in Bills (75%), 250 in Food (25%)
+    client.post('/expenses/add', data={'category': 'Bills', 'amount': '750.00', 'date': '2026-03-10', 'description': 'Electric bill'})
+    client.post('/expenses/add', data={'category': 'Food', 'amount': '250.00', 'date': '2026-03-11', 'description': 'Lunch'})
+
+    response = client.get('/profile')
+    assert response.status_code == 200
+    assert b"750.00" in response.data
+    assert b"75%" in response.data
+    assert b"250.00" in response.data
+    assert b"25%" in response.data
+
+
+
