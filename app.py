@@ -7,6 +7,7 @@ import random
 import re
 import sqlite3
 import click
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "spendly_secure_developer_secret_key"
@@ -149,38 +150,108 @@ def logout():
 @app.route("/profile")
 @login_required
 def profile():
-    """Renders the redesigned profile page with user details, summary stats, recent transactions, and category breakdown."""
+    """Renders the redesigned profile page with dynamic database user details, summary stats, recent transactions, and category breakdown."""
+    user_id = session["user_id"]
+    db = get_db()
+
+    # 1. User Info (agent_1)
+    user_row = db.execute("SELECT name, email, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
+    if user_row:
+        name = user_row["name"] or ""
+        email = user_row["email"] or ""
+        created_at = user_row["created_at"]
+    else:
+        name = session.get("user_name", "")
+        email = session.get("user_email", "")
+        created_at = None
+
+    parts = name.strip().split()
+    if not parts:
+        initials = "?"
+    elif len(parts) > 1:
+        initials = (parts[0][0] + parts[-1][0]).upper()
+    else:
+        initials = parts[0][0].upper()
+
+    member_since = "March 2026"
+    if created_at:
+        try:
+            created_dt = datetime.strptime(str(created_at)[:10], "%Y-%m-%d")
+            member_since = created_dt.strftime("%B %Y")
+        except Exception:
+            pass
+
     user = {
-        "name": "Demo User",
-        "email": "demo@spendly.com",
-        "initials": "DU",
-        "member_since": "March 2026"
+        "name": name,
+        "email": email,
+        "initials": initials,
+        "member_since": member_since
     }
+
+    # 2. Summary Stats (agent_1)
+    summary_row = db.execute(
+        "SELECT COALESCE(SUM(amount), 0.0) as total_spent, COUNT(*) as tx_count FROM expenses WHERE user_id = ?",
+        (user_id,)
+    ).fetchone()
+
+    top_cat_row = db.execute(
+        "SELECT category FROM expenses WHERE user_id = ? GROUP BY category ORDER BY SUM(amount) DESC, category ASC LIMIT 1",
+        (user_id,)
+    ).fetchone()
+
+    total_spent = float(summary_row["total_spent"]) if summary_row and summary_row["total_spent"] is not None else 0.0
+    transaction_count = summary_row["tx_count"] if summary_row and summary_row["tx_count"] is not None else 0
+    top_category = top_cat_row["category"] if top_cat_row and top_cat_row["category"] else "N/A"
 
     stats = {
-        "total_spent": 16050.00,
-        "transaction_count": 8,
-        "top_category": "Bills"
+        "total_spent": total_spent,
+        "transaction_count": transaction_count,
+        "top_category": top_category
     }
 
+    # Badge CSS class mapping helper
+    badge_class_map = {
+        "Food": "badge-food",
+        "Transport": "badge-transport",
+        "Bills": "badge-bills",
+        "Health": "badge-health",
+        "Entertainment": "badge-entertainment",
+        "Shopping": "badge-shopping",
+        "Other": "badge-other"
+    }
+
+    # 3. Recent Transactions (agent_2)
+    recent_rows = db.execute(
+        "SELECT id, date, description, category, amount FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT 10",
+        (user_id,)
+    ).fetchall()
+
     recent_transactions = [
-        {"date": "2026-03-20", "description": "Dinner with friends", "category": "Food", "badge_class": "badge-food", "amount": 650.00},
-        {"date": "2026-03-18", "description": "Bookstore purchase", "category": "Other", "badge_class": "badge-other", "amount": 950.00},
-        {"date": "2026-03-16", "description": "New running shoes", "category": "Shopping", "badge_class": "badge-shopping", "amount": 2500.00},
-        {"date": "2026-03-14", "description": "Movie tickets & snacks", "category": "Entertainment", "badge_class": "badge-entertainment", "amount": 1200.00},
-        {"date": "2026-03-12", "description": "Metro card reload", "category": "Transport", "badge_class": "badge-transport", "amount": 1800.00},
-        {"date": "2026-03-10", "description": "Medicines & checkup", "category": "Health", "badge_class": "badge-health", "amount": 2050.00},
-        {"date": "2026-03-05", "description": "Weekly groceries", "category": "Food", "badge_class": "badge-food", "amount": 3200.00},
-        {"date": "2026-03-01", "description": "Rent & electricity", "category": "Bills", "badge_class": "badge-bills", "amount": 4500.00}
+        {
+            "id": row["id"],
+            "date": row["date"],
+            "description": row["description"] or "—",
+            "category": row["category"],
+            "badge_class": badge_class_map.get(row["category"], "badge-other"),
+            "amount": row["amount"]
+        }
+        for row in recent_rows
     ]
 
+    # 4. Category Breakdown (agent_3)
+    breakdown_rows = db.execute(
+        "SELECT category, SUM(amount) as amount FROM expenses WHERE user_id = ? GROUP BY category ORDER BY amount DESC, category ASC",
+        (user_id,)
+    ).fetchall()
+
     category_breakdown = [
-        {"category": "Bills", "amount": 4500.00, "percentage": 28, "badge_class": "badge-bills"},
-        {"category": "Food", "amount": 3850.00, "percentage": 24, "badge_class": "badge-food"},
-        {"category": "Shopping", "amount": 2500.00, "percentage": 16, "badge_class": "badge-shopping"},
-        {"category": "Health", "amount": 2050.00, "percentage": 13, "badge_class": "badge-health"},
-        {"category": "Transport", "amount": 1800.00, "percentage": 11, "badge_class": "badge-transport"},
-        {"category": "Entertainment", "amount": 1200.00, "percentage": 8, "badge_class": "badge-entertainment"}
+        {
+            "category": row["category"],
+            "amount": float(row["amount"]),
+            "percentage": int(round((row["amount"] / total_spent * 100))) if total_spent > 0 else 0,
+            "badge_class": badge_class_map.get(row["category"], "badge-other")
+        }
+        for row in breakdown_rows
     ]
 
     return render_template(
