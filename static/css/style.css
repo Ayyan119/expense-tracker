@@ -28,6 +28,7 @@
     --radius-sm: 6px;
     --radius-md: 12px;
     --radius-lg: 20px;
+    --radius-pill: 999px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -883,6 +884,105 @@ a { color: inherit; text-decoration: none; }
 
 .profile-meta-value {
     color: var(--ink-muted);
+}
+
+/* Profile Date Filter Toolbar */
+.profile-filter-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+}
+
+.preset-pills-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.preset-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.55rem 1.25rem;
+    border-radius: var(--radius-pill);
+    background: var(--paper-warm);
+    color: var(--ink-soft);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: 1px solid var(--border-soft);
+}
+
+.preset-pill:hover {
+    background: var(--border-soft);
+    color: var(--ink);
+}
+
+.preset-pill.active {
+    background: var(--border);
+    color: var(--ink);
+    font-weight: 600;
+    border-color: var(--border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.filter-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    margin: 0 0.25rem;
+}
+
+.custom-date-form {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.filter-date-input {
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--paper-card);
+    font-size: 0.875rem;
+    color: var(--ink);
+    font-family: var(--font-body);
+}
+
+.filter-date-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.date-sep {
+    color: var(--ink-muted);
+    font-size: 0.875rem;
+}
+
+.btn-apply-filter {
+    background: var(--accent);
+    color: var(--paper-card);
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 0.55rem 1.4rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.btn-apply-filter:hover {
+    opacity: 0.9;
+}
+
+.profile-empty-state {
+    text-align: center;
+    color: var(--ink-muted);
+    padding: 1.5rem 0;
 }
 
 /* Stats Row */

@@ -500,4 +500,108 @@ def test_profile_category_breakdown_dynamic(client):
     assert b"25%" in response.data
 
 
+def test_profile_date_filter_range(client):
+    """Test filtering /profile by start_date and end_date range."""
+    client.post('/register', data={
+        'name': 'Filter Range User',
+        'email': 'filterrange@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    # Add expenses across 3 months
+    client.post('/expenses/add', data={'category': 'Food', 'amount': '100.00', 'date': '2026-01-15', 'description': 'January Lunch'})
+    client.post('/expenses/add', data={'category': 'Bills', 'amount': '500.00', 'date': '2026-02-15', 'description': 'February Rent'})
+    client.post('/expenses/add', data={'category': 'Shopping', 'amount': '300.00', 'date': '2026-03-15', 'description': 'March Shoes'})
+
+    # Filter for February only
+    response = client.get('/profile?start_date=2026-02-01&end_date=2026-02-28')
+    assert response.status_code == 200
+    assert b"500.00" in response.data
+    assert b"February Rent" in response.data
+    assert b"January Lunch" not in response.data
+    assert b"March Shoes" not in response.data
+
+
+def test_profile_date_filter_start_only(client):
+    """Test filtering /profile with start_date only."""
+    client.post('/register', data={
+        'name': 'Start Only User',
+        'email': 'startonly@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    client.post('/expenses/add', data={'category': 'Food', 'amount': '100.00', 'date': '2026-01-15', 'description': 'Jan Expense'})
+    client.post('/expenses/add', data={'category': 'Bills', 'amount': '200.00', 'date': '2026-03-15', 'description': 'Mar Expense'})
+
+    response = client.get('/profile?start_date=2026-02-01')
+    assert response.status_code == 200
+    assert b"200.00" in response.data
+    assert b"Mar Expense" in response.data
+    assert b"Jan Expense" not in response.data
+
+
+def test_profile_date_filter_end_only(client):
+    """Test filtering /profile with end_date only."""
+    client.post('/register', data={
+        'name': 'End Only User',
+        'email': 'endonly@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    client.post('/expenses/add', data={'category': 'Food', 'amount': '100.00', 'date': '2026-01-15', 'description': 'Jan Expense'})
+    client.post('/expenses/add', data={'category': 'Bills', 'amount': '200.00', 'date': '2026-03-15', 'description': 'Mar Expense'})
+
+    response = client.get('/profile?end_date=2026-02-01')
+    assert response.status_code == 200
+    assert b"100.00" in response.data
+    assert b"Jan Expense" in response.data
+    assert b"Mar Expense" not in response.data
+
+
+def test_profile_date_filter_no_results(client):
+    """Test filtering /profile with date range yielding 0 transactions renders empty state cleanly."""
+    client.post('/register', data={
+        'name': 'No Results User',
+        'email': 'noresults@example.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    client.post('/expenses/add', data={'category': 'Food', 'amount': '100.00', 'date': '2026-01-15', 'description': 'Jan Expense'})
+
+    response = client.get('/profile?start_date=2027-01-01&end_date=2027-12-31')
+    assert response.status_code == 200
+    assert b"0.00" in response.data
+    assert b"N/A" in response.data
+    assert b"No transactions recorded yet." in response.data
+    assert b"No spending categories to display." in response.data
+
+
+def test_profile_date_filter_form_persistence(client):
+    """Test date filter input values persist in rendered form and preset buttons render."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+
+    response = client.get('/profile?start_date=2026-03-01&end_date=2026-03-10')
+    assert response.status_code == 200
+    assert b'value="2026-03-01"' in response.data
+    assert b'value="2026-03-10"' in response.data
+    assert b'All Time' in response.data
+    assert b'This Month' in response.data
+    assert b'Apply' in response.data
+
+
+def test_profile_date_filter_presets(client):
+    """Test selecting presets (all, this_month, last_3_months, last_6_months)."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+
+    response_all = client.get('/profile?preset=all')
+    assert response_all.status_code == 200
+    assert b'All Time' in response_all.data
+
+    response_month = client.get('/profile?preset=this_month')
+    assert response_month.status_code == 200
+    assert b'This Month' in response_month.data
+
+
+
+
 
