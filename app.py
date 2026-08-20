@@ -117,7 +117,7 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if "user_id" in session:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("profile"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip()
@@ -133,7 +133,7 @@ def login():
             session["user_id"] = user["id"]
             session["user_name"] = user["name"]
             session["user_email"] = user["email"]
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("profile"))
 
         return render_template("login.html", error="Invalid email or password.", email=email)
 
@@ -149,19 +149,47 @@ def logout():
 @app.route("/profile")
 @login_required
 def profile():
-    db = get_db()
-    user_id = session["user_id"]
+    """Renders the redesigned profile page with user details, summary stats, recent transactions, and category breakdown."""
+    user = {
+        "name": "Demo User",
+        "email": "demo@spendly.com",
+        "initials": "DU",
+        "member_since": "March 2026"
+    }
 
-    # Fetch fresh user details
-    user = db.execute("SELECT name, email FROM users WHERE id = ?", (user_id,)).fetchone()
+    stats = {
+        "total_spent": 16050.00,
+        "transaction_count": 8,
+        "top_category": "Bills"
+    }
 
-    # Calculate summary stats
-    stats = db.execute(
-        "SELECT COUNT(id) as count, SUM(amount) as total FROM expenses WHERE user_id = ?",
-        (user_id,)
-    ).fetchone()
+    recent_transactions = [
+        {"date": "2026-03-20", "description": "Dinner with friends", "category": "Food", "badge_class": "badge-food", "amount": 650.00},
+        {"date": "2026-03-18", "description": "Bookstore purchase", "category": "Other", "badge_class": "badge-other", "amount": 950.00},
+        {"date": "2026-03-16", "description": "New running shoes", "category": "Shopping", "badge_class": "badge-shopping", "amount": 2500.00},
+        {"date": "2026-03-14", "description": "Movie tickets & snacks", "category": "Entertainment", "badge_class": "badge-entertainment", "amount": 1200.00},
+        {"date": "2026-03-12", "description": "Metro card reload", "category": "Transport", "badge_class": "badge-transport", "amount": 1800.00},
+        {"date": "2026-03-10", "description": "Medicines & checkup", "category": "Health", "badge_class": "badge-health", "amount": 2050.00},
+        {"date": "2026-03-05", "description": "Weekly groceries", "category": "Food", "badge_class": "badge-food", "amount": 3200.00},
+        {"date": "2026-03-01", "description": "Rent & electricity", "category": "Bills", "badge_class": "badge-bills", "amount": 4500.00}
+    ]
 
-    return render_template("profile.html", user=user, stats=stats)
+    category_breakdown = [
+        {"category": "Bills", "amount": 4500.00, "percentage": 28, "badge_class": "badge-bills"},
+        {"category": "Food", "amount": 3850.00, "percentage": 24, "badge_class": "badge-food"},
+        {"category": "Shopping", "amount": 2500.00, "percentage": 16, "badge_class": "badge-shopping"},
+        {"category": "Health", "amount": 2050.00, "percentage": 13, "badge_class": "badge-health"},
+        {"category": "Transport", "amount": 1800.00, "percentage": 11, "badge_class": "badge-transport"},
+        {"category": "Entertainment", "amount": 1200.00, "percentage": 8, "badge_class": "badge-entertainment"}
+    ]
+
+    return render_template(
+        "profile.html",
+        user=user,
+        stats=stats,
+        recent_transactions=recent_transactions,
+        category_breakdown=category_breakdown
+    )
 
 
 @app.route("/dashboard")
