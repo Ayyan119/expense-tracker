@@ -22,3 +22,6 @@ database/spendly.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local MCP secrets configuration
+.agents/mcp_config.json

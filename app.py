@@ -15,6 +15,17 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax"
 )
 
+# Standard expense categories
+CATEGORIES = [
+    'Bills',
+    'Entertainment',
+    'Food',
+    'Health',
+    'Other',
+    'Shopping',
+    'Transport'
+]
+
 # Helper functions
 def extract_initials(name: str) -> str:
     """Extract 1 or 2 character uppercase initials from a user's name."""
@@ -306,14 +317,18 @@ def profile():
     )
 
 
+@app.route("/analytics")
+@login_required
+def analytics():
+    """Renders the Analytics coming soon page for authenticated users."""
+    return render_template("analytics.html")
+
+
 @app.route("/dashboard")
 @login_required
 def dashboard():
     user_id = session["user_id"]
     db = get_db()
-
-    # Available categories (fixed list per spec)
-    categories = ['Food', 'Transport', 'Bills', 'Health', 'Entertainment', 'Shopping', 'Other']
 
     # Retrieve filter arguments
     query = request.args.get("query", "").strip()
@@ -387,7 +402,7 @@ def dashboard():
         expenses=expenses,
         total_spent=total_spent,
         category_breakdown=category_breakdown,
-        categories=categories,
+        categories=CATEGORIES,
         filters=filters
     )
 
@@ -395,31 +410,66 @@ def dashboard():
 @app.route("/expenses/add", methods=["GET", "POST"])
 @login_required
 def add_expense():
+    """Handle creation of a new expense transaction for the authenticated user."""
     if request.method == "POST":
         category = request.form.get("category", "").strip()
         amount_str = request.form.get("amount", "").strip()
         date = request.form.get("date", "").strip()
         description = request.form.get("description", "").strip()
 
+        form_data = {
+            "category": category,
+            "amount": amount_str,
+            "date": date,
+            "description": description
+        }
+
         if not category or not amount_str or not date:
-            return render_template("add_expense.html", error="Category, Amount, and Date are required.")
+            return render_template(
+                "add_expense.html",
+                error="Category, Amount, and Date are required.",
+                categories=CATEGORIES,
+                form_data=form_data
+            )
+
+        if category not in CATEGORIES:
+            return render_template(
+                "add_expense.html",
+                error="Please select a valid category.",
+                categories=CATEGORIES,
+                form_data=form_data
+            )
 
         try:
             amount = float(amount_str)
             if amount <= 0:
                 raise ValueError()
         except ValueError:
-            return render_template("add_expense.html", error="Amount must be a positive number.")
+            return render_template(
+                "add_expense.html",
+                error="Amount must be a positive number.",
+                categories=CATEGORIES,
+                form_data=form_data
+            )
+
+        valid_date = validate_iso_date(date)
+        if not valid_date:
+            return render_template(
+                "add_expense.html",
+                error="Please enter a valid date in YYYY-MM-DD format.",
+                categories=CATEGORIES,
+                form_data=form_data
+            )
 
         db = get_db()
         db.execute(
             "INSERT INTO expenses (user_id, category, amount, date, description) VALUES (?, ?, ?, ?, ?)",
-            (session["user_id"], category, amount, date, description)
+            (session["user_id"], category, amount, valid_date, description)
         )
         db.commit()
         return redirect(url_for("dashboard"))
 
-    return render_template("add_expense.html")
+    return render_template("add_expense.html", categories=CATEGORIES, form_data={})
 
 
 @app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])

@@ -20,11 +20,12 @@
             </a>
             <div class="nav-links">
                 {% if session.get('user_id') %}
-                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                    <a href="{{ url_for('profile') }}">Profile</a>
+                    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">Dashboard</a>
+                    <a href="{{ url_for('analytics') }}" class="{% if request.endpoint == 'analytics' %}active{% endif %}">Analytics</a>
+                    <a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}">Profile</a>
                     <a href="{{ url_for('logout') }}" class="nav-cta">Sign out</a>
                 {% else %}
-                    <a href="{{ url_for('login') }}">Sign in</a>
+                    <a href="{{ url_for('login') }}" class="{% if request.endpoint == 'login' %}active{% endif %}">Sign in</a>
                     <a href="{{ url_for('register') }}" class="nav-cta">Get started</a>
                 {% endif %}
             </div>

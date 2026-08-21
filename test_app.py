@@ -282,8 +282,36 @@ def test_login_redirect_if_logged_in(client):
     assert response.status_code == 200
     assert b"My Profile" in response.data
 
+def test_add_expense_requires_login(client):
+    """Test accessing GET or POST /expenses/add when unauthenticated redirects to /login."""
+    response_get = client.get('/expenses/add', follow_redirects=False)
+    assert response_get.status_code == 302
+    assert '/login' in response_get.headers['Location']
+
+    response_post = client.post('/expenses/add', data={
+        'category': 'Food',
+        'amount': '100.00',
+        'date': '2026-03-20',
+        'description': 'Test'
+    }, follow_redirects=False)
+    assert response_post.status_code == 302
+    assert '/login' in response_post.headers['Location']
+
+
+def test_add_expense_get_form_render(client):
+    """Test GET /expenses/add renders the Add Expense form with all 7 standard categories."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+    response = client.get('/expenses/add')
+    assert response.status_code == 200
+    assert b"Add Expense" in response.data
+    assert b"Log a new transaction to your account" in response.data
+    # Verify presence of all standard categories
+    for cat in ['Bills', 'Entertainment', 'Food', 'Health', 'Other', 'Shopping', 'Transport']:
+        assert f'<option value="{cat}"'.encode() in response.data
+
+
 def test_add_expense(client):
-    """Test adding a new expense."""
+    """Test adding a new valid expense."""
     client.post('/login', data={
         'email': 'demo@spendly.com',
         'password': 'demo123'
@@ -299,6 +327,154 @@ def test_add_expense(client):
     assert response.status_code == 200
     assert b"Lunch with team" in response.data
     assert b"450.50" in response.data
+
+
+def test_add_expense_all_categories(client):
+    """Test that expenses can be successfully added for all 7 standard categories."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+    categories = ['Bills', 'Entertainment', 'Food', 'Health', 'Other', 'Shopping', 'Transport']
+    
+    for i, cat in enumerate(categories):
+        response = client.post('/expenses/add', data={
+            'category': cat,
+            'amount': f"{100.0 + i:.2f}",
+            'date': '2026-03-21',
+            'description': f"Test for {cat}"
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert f"Test for {cat}".encode() in response.data
+
+
+def test_add_expense_missing_fields_validation(client):
+    """Test form validation when submitting with missing required fields."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+    
+    # Missing category
+    response = client.post('/expenses/add', data={
+        'category': '',
+        'amount': '150.00',
+        'date': '2026-03-20',
+        'description': 'Missing category'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Category, Amount, and Date are required." in response.data
+    assert b'value="150.00"' in response.data
+    assert b'value="Missing category"' in response.data
+
+    # Missing amount
+    response = client.post('/expenses/add', data={
+        'category': 'Food',
+        'amount': '',
+        'date': '2026-03-20',
+        'description': 'Missing amount'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Category, Amount, and Date are required." in response.data
+    assert b'value="Missing amount"' in response.data
+
+    # Missing date
+    response = client.post('/expenses/add', data={
+        'category': 'Food',
+        'amount': '150.00',
+        'date': '',
+        'description': 'Missing date'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Category, Amount, and Date are required." in response.data
+
+
+def test_add_expense_invalid_amount_validation(client):
+    """Test form validation when submitting zero, negative, or non-numeric amounts."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+    
+    # Zero amount
+    response_zero = client.post('/expenses/add', data={
+        'category': 'Food',
+        'amount': '0',
+        'date': '2026-03-20',
+        'description': 'Zero test'
+    }, follow_redirects=True)
+    assert response_zero.status_code == 200
+    assert b"Amount must be a positive number." in response_zero.data
+
+    # Negative amount
+    response_neg = client.post('/expenses/add', data={
+        'category': 'Food',
+        'amount': '-50.00',
+        'date': '2026-03-20',
+        'description': 'Negative test'
+    }, follow_redirects=True)
+    assert response_neg.status_code == 200
+    assert b"Amount must be a positive number." in response_neg.data
+
+    # Non-numeric amount
+    response_str = client.post('/expenses/add', data={
+        'category': 'Food',
+        'amount': 'abc',
+        'date': '2026-03-20',
+        'description': 'Non-numeric test'
+    }, follow_redirects=True)
+    assert response_str.status_code == 200
+    assert b"Amount must be a positive number." in response_str.data
+
+
+def test_add_expense_invalid_category_validation(client):
+    """Test form validation when submitting an invalid category."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+    
+    response = client.post('/expenses/add', data={
+        'category': 'InvalidCategory',
+        'amount': '100.00',
+        'date': '2026-03-20',
+        'description': 'Bad category test'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Please select a valid category." in response.data
+
+
+def test_add_expense_invalid_date_validation(client):
+    """Test form validation when submitting an invalid date format."""
+    client.post('/login', data={'email': 'demo@spendly.com', 'password': 'demo123'})
+    
+    response = client.post('/expenses/add', data={
+        'category': 'Food',
+        'amount': '100.00',
+        'date': 'invalid-date',
+        'description': 'Bad date test'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Please enter a valid date in YYYY-MM-DD format." in response.data
+
+
+def test_add_expense_updates_dashboard_and_profile(client):
+    """Test that adding an expense updates metrics across both Dashboard and Profile views."""
+    client.post('/register', data={
+        'name': 'Integration User',
+        'email': 'integration@spendly.com',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    })
+    
+    # Add first expense
+    client.post('/expenses/add', data={
+        'category': 'Entertainment',
+        'amount': '1250.00',
+        'date': '2026-03-22',
+        'description': 'Concert ticket'
+    }, follow_redirects=True)
+    
+    # Verify in dashboard
+    res_dash = client.get('/dashboard')
+    assert res_dash.status_code == 200
+    assert b"Concert ticket" in res_dash.data
+    assert b"1,250.00" in res_dash.data
+    
+    # Verify in profile
+    res_prof = client.get('/profile')
+    assert res_prof.status_code == 200
+    assert b"Concert ticket" in res_prof.data
+    assert b"1,250.00" in res_prof.data
+    assert b"Entertainment" in res_prof.data
 
 def test_edit_expense(client):
     """Test editing an existing expense."""
@@ -600,6 +776,53 @@ def test_profile_date_filter_presets(client):
     response_month = client.get('/profile?preset=this_month')
     assert response_month.status_code == 200
     assert b'This Month' in response_month.data
+
+
+def test_analytics_requires_login(client):
+    """Test accessing GET /analytics when unauthenticated redirects to /login."""
+    response = client.get('/analytics', follow_redirects=False)
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+
+
+def test_analytics_page_authenticated(client):
+    """Test authenticated GET /analytics renders the coming soon page with expected elements."""
+    client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
+    })
+    response = client.get('/analytics')
+    assert response.status_code == 200
+    assert b"Advanced Analytics" in response.data
+    assert b"Coming Soon" in response.data
+    assert b"under construction to help you understand your spending" in response.data
+    assert b"Check back soon for updates" in response.data
+
+
+def test_analytics_navbar_visibility_and_active_state(client):
+    """Test navbar Analytics link visibility for logged in vs logged out users and active state highlighting."""
+    # Logged out: Analytics should NOT appear in navbar
+    res_logged_out = client.get('/')
+    assert res_logged_out.status_code == 200
+    assert b'href="/analytics"' not in res_logged_out.data
+
+    # Log in
+    client.post('/login', data={
+        'email': 'demo@spendly.com',
+        'password': 'demo123'
+    })
+
+    # Logged in visiting /dashboard: Analytics is in navbar and dashboard is active
+    res_dash = client.get('/dashboard')
+    assert res_dash.status_code == 200
+    assert b'href="/analytics"' in res_dash.data
+    assert b'class="active">Dashboard</a>' in res_dash.data
+
+    # Logged in visiting /analytics: Analytics link has class="active"
+    res_analytics = client.get('/analytics')
+    assert res_analytics.status_code == 200
+    assert b'class="active">Analytics</a>' in res_analytics.data
+
 
 
 
