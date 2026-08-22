@@ -42,7 +42,7 @@
                 </div>
                 
                 <button type="submit" class="btn-submit">Save Changes</button>
-                <a href="{{ url_for('profile') if return_to == 'profile' else url_for('dashboard') }}" class="btn-ghost" style="display: block; text-align: center; margin-top: 0.75rem; width: 100%;">Cancel</a>
+                <a href="{{ url_for('dashboard') if return_to == 'dashboard' else url_for('profile') }}" class="btn-ghost" style="display: block; text-align: center; margin-top: 0.75rem; width: 100%;">Cancel</a>
             </form>
         </div>
     </div>

@@ -3,7 +3,7 @@ import functools
 import os
 import re
 
-from flask import Flask, g, redirect, render_template, request, session, url_for
+from flask import Flask, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from database.db import get_db, init_db, seed_db
@@ -22,6 +22,8 @@ CATEGORIES = [
     "Shopping",
     "Transport",
 ]
+
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 # Helper functions
@@ -95,9 +97,9 @@ def login_required(view):
 
 @app.route("/")
 def landing():
-    # If already logged in, send directly to dashboard
+    # If already logged in, send directly to profile
     if "user_id" in session:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("profile"))
     return render_template("landing.html")
 
 
@@ -114,7 +116,7 @@ def privacy():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if "user_id" in session:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("profile"))
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -138,8 +140,7 @@ def register():
                 email=email,
             )
 
-        email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(email_pattern, email):
+        if not EMAIL_REGEX.match(email):
             return render_template(
                 "register.html",
                 error="Please enter a valid email address.",
@@ -157,7 +158,10 @@ def register():
 
         if password != confirm_password:
             return render_template(
-                "register.html", error="Passwords do not match.", name=name, email=email
+                "register.html",
+                error="Passwords do not match.",
+                name=name,
+                email=email,
             )
 
         db = get_db()
@@ -188,7 +192,7 @@ def register():
             session["user_name"] = name
             session["user_email"] = email
 
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("profile"))
         except Exception:
             return render_template(
                 "register.html",
@@ -397,88 +401,8 @@ def analytics():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    user_id = session["user_id"]
-    db = get_db()
-
-    # Retrieve filter arguments
-    query = request.args.get("query", "").strip()
-    category = request.args.get("category", "").strip()
-    start_date = request.args.get("start_date", "").strip()
-    end_date = request.args.get("end_date", "").strip()
-    order_by = request.args.get("order_by", "newest").strip()
-
-    # Build filtered query dynamically
-    sql_query = "SELECT * FROM expenses WHERE user_id = ?"
-    params = [user_id]
-
-    if query:
-        sql_query += " AND (description LIKE ? OR category LIKE ?)"
-        like_pattern = f"%{query}%"
-        params.extend([like_pattern, like_pattern])
-
-    if category:
-        sql_query += " AND category = ?"
-        params.append(category)
-
-    if start_date:
-        sql_query += " AND date >= ?"
-        params.append(start_date)
-
-    if end_date:
-        sql_query += " AND date <= ?"
-        params.append(end_date)
-
-    # Apply sorting
-    if order_by == "oldest":
-        sql_query += " ORDER BY date ASC, id ASC"
-    elif order_by == "amount_desc":
-        sql_query += " ORDER BY amount DESC"
-    elif order_by == "amount_asc":
-        sql_query += " ORDER BY amount ASC"
-    else:  # default: newest
-        sql_query += " ORDER BY date DESC, id DESC"
-
-    expenses = db.execute(sql_query, params).fetchall()
-
-    # Calculate metrics for the visible (filtered) expenses
-    total_spent = sum(expense["amount"] for expense in expenses)
-
-    # Calculate category breakdown based on all user expenses
-    breakdown_rows = db.execute(
-        "SELECT category, SUM(amount) as amount FROM expenses WHERE user_id = ? GROUP BY category ORDER BY amount DESC",
-        (user_id,),
-    ).fetchall()
-
-    total_spent_all = sum(row["amount"] for row in breakdown_rows)
-    category_breakdown = []
-    for row in breakdown_rows:
-        percentage = (
-            (row["amount"] / total_spent_all * 100) if total_spent_all > 0 else 0
-        )
-        category_breakdown.append(
-            {
-                "category": row["category"],
-                "amount": row["amount"],
-                "percentage": percentage,
-            }
-        )
-
-    filters = {
-        "query": query,
-        "category": category,
-        "start_date": start_date,
-        "end_date": end_date,
-        "order_by": order_by,
-    }
-
-    return render_template(
-        "dashboard.html",
-        expenses=expenses,
-        total_spent=total_spent,
-        category_breakdown=category_breakdown,
-        categories=CATEGORIES,
-        filters=filters,
-    )
+    """Redirects deprecated dashboard route to the profile page."""
+    return redirect(url_for("profile"))
 
 
 @app.route("/expenses/add", methods=["GET", "POST"])
@@ -541,7 +465,7 @@ def add_expense():
             (session["user_id"], category, amount, valid_date, description),
         )
         db.commit()
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("profile"))
 
     return render_template("add_expense.html", categories=CATEGORIES, form_data={})
 
@@ -554,10 +478,10 @@ def edit_expense(id):
 
     # Extract return target (whitelisted to profile or dashboard)
     return_to = request.args.get("return_to") or request.form.get(
-        "return_to", "dashboard"
+        "return_to", "profile"
     )
     if return_to not in ("profile", "dashboard"):
-        return_to = "dashboard"
+        return_to = "profile"
 
     # Retrieve the expense and verify ownership
     expense = db.execute(
@@ -626,15 +550,31 @@ def edit_expense(id):
     )
 
 
-@app.route("/expenses/<int:id>/delete")
+@app.route("/expenses/<int:id>/delete", methods=["GET", "POST"])
 @login_required
 def delete_expense(id):
+    """Deletes an expense belonging to the authenticated user and redirects back to profile or dashboard preserving active filters."""
     db = get_db()
     user_id = session["user_id"]
 
-    return_to = request.args.get("return_to", "dashboard")
+    return_to = request.args.get("return_to") or request.form.get(
+        "return_to", "profile"
+    )
     if return_to not in ("profile", "dashboard"):
-        return_to = "dashboard"
+        return_to = "profile"
+
+    # Forward any active filter parameters upon redirection
+    redirect_kwargs = {}
+    if return_to == "profile":
+        for param in ("preset", "start_date", "end_date"):
+            val = request.args.get(param) or request.form.get(param)
+            if val:
+                redirect_kwargs[param] = val
+    elif return_to == "dashboard":
+        for param in ("query", "category", "start_date", "end_date", "order_by"):
+            val = request.args.get(param) or request.form.get(param)
+            if val:
+                redirect_kwargs[param] = val
 
     # Verify ownership and delete
     cursor = db.cursor()
@@ -644,7 +584,8 @@ def delete_expense(id):
     if cursor.rowcount == 0:
         return "Expense not found or unauthorized.", 404
 
-    return redirect(url_for(return_to))
+    flash("Expense deleted successfully.", "success")
+    return redirect(url_for(return_to, **redirect_kwargs))
 
 
 if __name__ == "__main__":

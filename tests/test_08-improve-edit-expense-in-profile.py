@@ -103,7 +103,7 @@ def test_edit_expense_page_from_dashboard_cancel_points_to_dashboard(client):
         ).fetchone()
         expense_id = expense["id"]
 
-    response = client.get(f"/expenses/{expense_id}/edit")
+    response = client.get(f"/expenses/{expense_id}/edit?return_to=dashboard")
     assert response.status_code == 200
     assert b'href="/dashboard"' in response.data
 
@@ -279,7 +279,9 @@ def test_delete_expense_from_dashboard_redirects_to_dashboard(client):
         ).fetchone()
         expense_id = expense["id"]
 
-    response = client.get(f"/expenses/{expense_id}/delete", follow_redirects=False)
+    response = client.get(
+        f"/expenses/{expense_id}/delete?return_to=dashboard", follow_redirects=False
+    )
     assert response.status_code == 302
     assert "/dashboard" in response.headers["Location"]
 
