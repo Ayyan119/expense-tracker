@@ -3,12 +3,27 @@
     "enabled": true,
     "PreToolUse": [
       {
-        "matcher": "run_command",
+        "matcher": "run_command|write_to_file|replace_file_content|multi_replace_file_content",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .agents/hooks/protect-sensitive-files.py",
+            "command": "python3 hooks/protect-sensitive-files.py",
             "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "black-formatter": {
+    "enabled": true,
+    "PostToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 hooks/black-formatter.py",
+            "timeout": 15
           }
         ]
       }
