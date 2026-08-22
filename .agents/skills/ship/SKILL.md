@@ -1,4 +1,5 @@
 ---
+name: ship
 description: Commit, push, create PR, merge, and clean up after a feature is complete
 allowed-tools: Read, Bash, mcp__github__create_pull_request, mcp__github__merge_pull_request, mcp__github__delete_branch
 ---
