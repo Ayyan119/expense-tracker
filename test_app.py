@@ -90,7 +90,7 @@ def test_registration(client):
     )
 
     assert response.status_code == 200
-    assert b"Welcome, Test User" in response.data
+    assert b"Test User" in response.data
     assert b"Recent Transactions" in response.data
 
 
@@ -200,14 +200,14 @@ def test_registration_duplicate_email(client):
 
 
 def test_registration_redirect_if_logged_in(client):
-    """Test that an authenticated user accessing /register is redirected to dashboard."""
+    """Test that an authenticated user accessing /register is redirected to profile."""
     # Login first
     client.post("/login", data={"email": "demo@spendly.com", "password": "demo123"})
 
     # Access GET /register
     response = client.get("/register", follow_redirects=True)
     assert response.status_code == 200
-    assert b"Welcome, Demo User" in response.data
+    assert b"Demo User" in response.data
 
 
 def test_login_page_render(client):
@@ -556,8 +556,8 @@ def test_add_expense_updates_dashboard_and_profile(client):
         follow_redirects=True,
     )
 
-    # Verify in dashboard
-    res_dash = client.get("/dashboard")
+    # Verify in profile via dashboard redirect
+    res_dash = client.get("/dashboard", follow_redirects=True)
     assert res_dash.status_code == 200
     assert b"Concert ticket" in res_dash.data
     assert b"1,250.00" in res_dash.data
@@ -1016,11 +1016,11 @@ def test_analytics_navbar_visibility_and_active_state(client):
     # Log in
     client.post("/login", data={"email": "demo@spendly.com", "password": "demo123"})
 
-    # Logged in visiting /dashboard: Analytics is in navbar and dashboard is active
-    res_dash = client.get("/dashboard")
-    assert res_dash.status_code == 200
-    assert b'href="/analytics"' in res_dash.data
-    assert b'class="active">Dashboard</a>' in res_dash.data
+    # Logged in visiting /profile: Analytics is in navbar and profile is active
+    res_prof = client.get("/profile")
+    assert res_prof.status_code == 200
+    assert b'href="/analytics"' in res_prof.data
+    assert b'class="active">Profile</a>' in res_prof.data
 
     # Logged in visiting /analytics: Analytics link has class="active"
     res_analytics = client.get("/analytics")
